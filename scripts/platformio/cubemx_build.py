@@ -221,6 +221,6 @@ if sentinelrt_sys.platform.startswith("linux"):
     env.BuildSources(
         str(sentinelrt_build / "cubemx_freertos" / "portable_linux"),
         str(sentinelrt_port_dir),
-        src_filter=["+<port.c>"],
+        src_filter=["+<port.c>", "+<portasm.c>"],
     )
 
