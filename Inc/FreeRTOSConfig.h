@@ -51,7 +51,7 @@
 #if defined(__ICCARM__) || defined(__ARMCC_VERSION) || defined(__GNUC__)
 #include <stdint.h>
 extern uint32_t SystemCoreClock;
-void xPortSysTickHandler(void);
+void SentinelRT_FreeRTOS_SysTick_Handler(void);
 #endif
 #ifndef CMSIS_device_header
 #define CMSIS_device_header "stm32c0xx.h"
@@ -148,7 +148,7 @@ header file. */
 standard names. */
 #define vPortSVCHandler     SVC_Handler
 #define xPortPendSVHandler  PendSV_Handler
-#define xPortSysTickHandler SysTick_Handler
+#define xPortSysTickHandler SentinelRT_FreeRTOS_SysTick_Handler
 
 /* IMPORTANT: After 10.3.1 update, Systick_Handler comes from NVIC (if SYS timebase = systick), otherwise from cmsis_os2.c */
 
