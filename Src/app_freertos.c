@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "system_supervisor.h"
+#include "stm32_status_indicator.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -129,12 +130,22 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN defaultTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END defaultTask */
+system_supervisor_t supervisor = {0};
+(void)argument;
+
+if (!system_supervisor_initialize(
+    &supervisor,
+    stm32_status_indicator_port()))
+{
+  Error_Handler();
+}
+
+for (;;)
+{
+  system_supervisor_run_heartbeat(&supervisor);
+  osDelay(500U);
+}
+/* USER CODE END defaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
