@@ -1,0 +1,44 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Native build and test output
+build/
+build-*/
+cmake-build-*/
+Testing/
+coverage/
+reports/
+
+# Compiled artifacts
+*.o
+*.obj
+*.a
+*.elf
+*.bin
+*.hex
+*.map
+*.d
+
+# Python tooling
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+
+# VS Code local state
+.vscode/.browse.c_cpp.db*
+.vscode/ipch/
+.vscode/settings.json
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
