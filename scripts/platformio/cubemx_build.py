@@ -192,3 +192,35 @@ env.BuildSources(
         "+<startup_stm32c031xx.s>",
     ],
 )
+
+# SENTINELRT_LINUX_PORT_BUILD
+# PlatformIO source discovery includes port.c on Windows but omits it on the
+# case-sensitive Linux CI runner. Register only the missing Linux build target
+# to avoid duplicate FreeRTOS port symbols on Windows.
+import sys as sentinelrt_sys
+from pathlib import Path as SentinelRTPath
+
+if sentinelrt_sys.platform.startswith("linux"):
+    sentinelrt_project = SentinelRTPath(env.subst("$PROJECT_DIR"))
+    sentinelrt_build = SentinelRTPath(env.subst("$BUILD_DIR"))
+    sentinelrt_port_dir = (
+        sentinelrt_project
+        / "Middlewares"
+        / "Third_Party"
+        / "FreeRTOS"
+        / "Source"
+        / "portable"
+        / "GCC"
+        / "ARM_CM0"
+    )
+    sentinelrt_port_source = sentinelrt_port_dir / "port.c"
+
+    if not sentinelrt_port_source.is_file():
+        raise RuntimeError("FreeRTOS Linux port.c was not found")
+
+    env.BuildSources(
+        str(sentinelrt_build / "cubemx_freertos" / "portable_linux"),
+        str(sentinelrt_port_dir),
+        src_filter=["+<port.c>"],
+    )
+
