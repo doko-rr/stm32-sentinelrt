@@ -71,7 +71,10 @@ Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0/port.c \
 Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0/portasm.c \
 Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.c \
 Src/sysmem.c \
-Src/syscalls.c  
+Src/syscalls.c \
+Src/tim.c \
+Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.c \
+Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.c
 
 # ASM sources
 ASM_SOURCES =  \
