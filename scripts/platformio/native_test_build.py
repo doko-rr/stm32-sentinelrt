@@ -7,6 +7,7 @@ build = Path(env.subst("$BUILD_DIR"))
 source_roots = [
     project / "firmware" / "ports" / "status_indicator",
     project / "firmware" / "ports" / "environmental_sensor",
+    project / "firmware" / "platform" / "stm32" / "environmental_sensor",
     project / "firmware" / "domain" / "system_health",
     project / "firmware" / "domain" / "sensor_sample",
     project / "firmware" / "domain" / "dht22_protocol",
