@@ -18,8 +18,16 @@ source_roots = [
 env.AppendUnique(CPPPATH=[str(path) for path in source_roots])
 
 for index, source_root in enumerate(source_roots):
+    source_filter = ["+<*.c>"]
+
+    # The adapter engine is host-testable, while the concrete HAL binding
+    # belongs only to the STM32 firmware target.
+    if source_root.name == "environmental_sensor" \
+            and source_root.parent.name == "stm32":
+        source_filter.append("-<stm32_dht22_hal.c>")
+
     env.BuildSources(
         str(build / "native_logic" / str(index)),
         str(source_root),
-        src_filter=["+<*.c>"],
+        src_filter=source_filter,
     )
