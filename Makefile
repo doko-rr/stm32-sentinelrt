@@ -72,7 +72,7 @@ Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0/portasm.c \
 Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.c \
 Src/sysmem.c \
 Src/syscalls.c \
-Src/tim.c firmware/platform/stm32/environmental_sensor/stm32_dht22_adapter.c firmware/platform/stm32/environmental_sensor/stm32_dht22_hal.c \
+firmware/platform/stm32/composition/stm32_sensor_composition.c \nSrc/tim.c firmware/platform/stm32/environmental_sensor/stm32_dht22_adapter.c firmware/platform/stm32/environmental_sensor/stm32_dht22_hal.c \
 Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.c \
 Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.c
 

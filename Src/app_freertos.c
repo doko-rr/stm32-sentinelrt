@@ -24,6 +24,9 @@
 /* USER CODE BEGIN Includes */
 #include "system_supervisor.h"
 #include "stm32_status_indicator.h"
+#include "stm32_sensor_composition.h"
+#include "FreeRTOS.h"
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +46,20 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+#define SENSOR_TASK_STACK_WORDS 256U
 
+static osThreadId_t sensorTaskHandle;
+static StaticTask_t sensorTaskControlBlock;
+static StackType_t sensorTaskStack[SENSOR_TASK_STACK_WORDS];
+
+static const osThreadAttr_t sensorTask_attributes = {
+  .name = "sensorTask",
+  .cb_mem = &sensorTaskControlBlock,
+  .cb_size = sizeof(sensorTaskControlBlock),
+  .stack_mem = sensorTaskStack,
+  .stack_size = sizeof(sensorTaskStack),
+  .priority = (osPriority_t) osPriorityNormal
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -55,7 +71,7 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+static void StartSensorTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 5 */
@@ -112,7 +128,11 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
+  if (sensorTaskHandle == NULL)
+  {
+    Error_Handler();
+  }
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -150,6 +170,21 @@ for (;;)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static void StartSensorTask(void *argument)
+{
+  bool sensorReady;
 
+  (void)argument;
+  sensorReady = stm32_sensor_composition_initialize(osKernelGetTickCount());
+
+  for (;;)
+  {
+    if (sensorReady)
+    {
+      stm32_sensor_composition_process(osKernelGetTickCount());
+    }
+    osDelay(1U);
+  }
+}
 /* USER CODE END Application */
 
