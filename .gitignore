@@ -45,3 +45,6 @@ Thumbs.db
 
 # VS Code local workspace
 .vscode/
+
+# Wokwi logic analyzer captures
+*.vcd

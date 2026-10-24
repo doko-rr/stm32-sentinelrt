@@ -24,6 +24,10 @@
 /* USER CODE BEGIN Includes */
 #include "system_supervisor.h"
 #include "stm32_status_indicator.h"
+#include "stm32_sensor_composition.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +47,20 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+#define SENSOR_TASK_STACK_WORDS 256U
 
+static osThreadId_t sensorTaskHandle;
+static StaticTask_t sensorTaskControlBlock;
+static StackType_t sensorTaskStack[SENSOR_TASK_STACK_WORDS];
+
+static const osThreadAttr_t sensorTask_attributes = {
+  .name = "sensorTask",
+  .cb_mem = &sensorTaskControlBlock,
+  .cb_size = sizeof(sensorTaskControlBlock),
+  .stack_mem = sensorTaskStack,
+  .stack_size = sizeof(sensorTaskStack),
+  .priority = (osPriority_t) osPriorityNormal
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -55,7 +72,8 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+static void StartSensorTask(void *argument);
+static void reportSensorRuntime(const sensor_sample_t *sample, UBaseType_t sensorStackWords, UBaseType_t defaultStackWords);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 5 */
@@ -112,7 +130,11 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
+  if (sensorTaskHandle == NULL)
+  {
+    Error_Handler();
+  }
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -150,6 +172,73 @@ for (;;)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static void reportSensorRuntime(
+    const sensor_sample_t *sample,
+    UBaseType_t sensorStackWords,
+    UBaseType_t defaultStackWords)
+{
+  int32_t temperatureTenths;
+  uint32_t humidityTenths;
 
+  if (sample == NULL)
+  {
+    return;
+  }
+
+  temperatureTenths = (int32_t)(sample->temperature_celsius * 10.0F);
+  humidityTenths = (uint32_t)(sample->relative_humidity_percent * 10.0F);
+
+  printf(
+      "SENSOR status=%s seq=%lu temp=%ld.%01ldC humidity=%lu.%01lu%% "
+      "stack_sensor=%lu stack_default=%lu\r\n",
+      sensor_sample_status_name(sample->status),
+      (unsigned long)sample->sequence,
+      (long)(temperatureTenths / 10),
+      (long)(temperatureTenths < 0
+          ? -(temperatureTenths % 10)
+          : temperatureTenths % 10),
+      (unsigned long)(humidityTenths / 10U),
+      (unsigned long)(humidityTenths % 10U),
+      (unsigned long)sensorStackWords,
+      (unsigned long)defaultStackWords
+  );
+}
+
+static void StartSensorTask(void *argument)
+{
+  bool sensorReady;
+  uint32_t lastReportedSequence = 0U;
+
+  (void)argument;
+  sensorReady = stm32_sensor_composition_initialize(osKernelGetTickCount());
+  printf(
+      "SentinelRT sensor runtime %s\r\n",
+      sensorReady ? "started" : "initialization_failed"
+  );
+
+  for (;;)
+  {
+    if (sensorReady)
+    {
+      uint32_t currentTick = osKernelGetTickCount();
+      sensor_sample_t sample;
+
+      stm32_sensor_composition_process(currentTick);
+      sample = stm32_sensor_composition_latest(currentTick);
+
+      if (sample.sequence != 0U
+          && sample.sequence != lastReportedSequence)
+      {
+        reportSensorRuntime(
+            &sample,
+            uxTaskGetStackHighWaterMark(NULL),
+            uxTaskGetStackHighWaterMark(defaultTaskHandle)
+        );
+        lastReportedSequence = sample.sequence;
+      }
+    }
+    osDelay(1U);
+  }
+}
 /* USER CODE END Application */
 

@@ -68,6 +68,9 @@ void Error_Handler(void);
 #define RCC_OSC_IN_GPIO_Port GPIOF
 #define RCC_OSC_OUT_Pin GPIO_PIN_1
 #define RCC_OSC_OUT_GPIO_Port GPIOF
+#define DHT22_DATA_Pin GPIO_PIN_4
+#define DHT22_DATA_GPIO_Port GPIOA
+#define DHT22_DATA_EXTI_IRQn EXTI4_15_IRQn
 #define DEBUG_SWDIO_Pin GPIO_PIN_13
 #define DEBUG_SWDIO_GPIO_Port GPIOA
 #define DEBUG_SWCLK_Pin GPIO_PIN_14
