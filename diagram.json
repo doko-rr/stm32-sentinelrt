@@ -1,16 +1,111 @@
 {
   "version": 1,
-  "author": "doko-rr",
+  "author": "handoko muji prabowo",
   "editor": "wokwi",
   "parts": [
     {
       "type": "board-st-nucleo-c031c6",
       "id": "nucleo",
-      "top": 0,
-      "left": 0,
+      "top": -37.57,
+      "left": -0.98,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -66.9,
+      "left": -120.6,
+      "attrs": {
+        "temperature": "24",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-gnd",
+      "id": "gnd1",
+      "top": 57.6,
+      "left": -58.2,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -162.85,
+      "left": 163.2,
+      "attrs": {
+        "channelNames": "DHT22_DATA,D1,D2,D3,D4,D5,D6,D7",
+        "bufferSize": "100000"
+      }
+    },
+    {
+      "type": "wokwi-gnd",
+      "id": "gnd2",
+      "top": -76.8,
+      "left": 114.6,
       "attrs": {}
     }
   ],
-  "connections": [],
+  "connections": [
+    [
+      "$serialMonitor:TX",
+      "nucleo:PA3",
+      "",
+      []
+    ],
+    [
+      "$serialMonitor:RX",
+      "nucleo:PA2",
+      "",
+      []
+    ],
+    [
+      "dht1:VCC",
+      "nucleo:3V3.2",
+      "red",
+      [
+        "v67.2",
+        "h134.4",
+        "v75.97"
+      ]
+    ],
+    [
+      "gnd1:GND",
+      "dht1:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "nucleo:PA4",
+      "dht1:SDA",
+      "green",
+      [
+        "h9.6",
+        "v48",
+        "h-76.8",
+        "v0",
+        "h-28.8"
+      ]
+    ],
+    [
+      "logic1:D0",
+      "nucleo:PA4",
+      "green",
+      [
+        "h-134.4",
+        "v374.4"
+      ]
+    ],
+    [
+      "gnd2:GND",
+      "logic1:GND",
+      "black",
+      [
+        "v0",
+        "h48"
+      ]
+    ]
+  ],
   "dependencies": {}
 }

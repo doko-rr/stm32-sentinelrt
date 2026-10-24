@@ -3,3 +3,4 @@ version = 1
 firmware = ".pio/build/nucleo_c031c6/firmware.bin"
 elf = ".pio/build/nucleo_c031c6/firmware.elf"
 gdbServerPort = 3333
+vcdFile = "dht22-pa4-capture.vcd"

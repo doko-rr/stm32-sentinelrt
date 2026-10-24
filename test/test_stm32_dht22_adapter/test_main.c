@@ -114,6 +114,15 @@ static void advance_to_capture(void)
     );
 }
 
+static void emit_response_handshake(void)
+{
+    /* MCU release-high is ignored until the sensor response-low arrives. */
+    stm32_dht22_adapter_on_edge(&adapter, fake.now_us, true);
+    fake.now_us += 30U;
+    stm32_dht22_adapter_on_edge(&adapter, fake.now_us, false);
+    fake.now_us += 80U;
+}
+
 static void emit_bit(uint8_t value)
 {
     stm32_dht22_adapter_on_edge(&adapter, fake.now_us, true);
@@ -127,6 +136,8 @@ static void emit_frame(const uint8_t frame[5])
     size_t byte_index;
     int bit_index;
 
+    emit_response_handshake();
+
     for (byte_index = 0U; byte_index < 5U; ++byte_index)
     {
         for (bit_index = 7; bit_index >= 0; --bit_index)
@@ -134,6 +145,36 @@ static void emit_frame(const uint8_t frame[5])
             emit_bit((uint8_t)((frame[byte_index] >> bit_index) & 1U));
         }
     }
+}
+
+static void test_data_capture_starts_after_response_low(void)
+{
+    const uint8_t frame[5] = {0x02U, 0x2BU, 0x00U, 0xF3U, 0x20U};
+    environmental_sensor_reading_t reading = {-1.0F, -1.0F};
+    size_t byte_index;
+    int bit_index;
+
+    prepare_initialized_adapter();
+    advance_to_capture();
+    emit_response_handshake();
+
+    TEST_ASSERT_EQUAL_UINT8(0U, adapter.pulse_count);
+    TEST_ASSERT_TRUE(adapter.response_low_seen);
+
+    for (byte_index = 0U; byte_index < 5U; ++byte_index)
+    {
+        for (bit_index = 7; bit_index >= 0; --bit_index)
+        {
+            emit_bit((uint8_t)((frame[byte_index] >> bit_index) & 1U));
+        }
+    }
+
+    TEST_ASSERT_EQUAL(
+        ENVIRONMENTAL_SENSOR_OPERATION_OK,
+        environmental_sensor_port_poll_measurement(&port, &reading)
+    );
+    TEST_ASSERT_FLOAT_WITHIN(0.01F, 24.3F, reading.temperature_celsius);
+    TEST_ASSERT_FLOAT_WITHIN(0.01F, 55.5F, reading.relative_humidity_percent);
 }
 
 static void test_rejects_invalid_hardware(void)
@@ -224,6 +265,7 @@ static void test_invalid_pulse_preserves_reading(void)
 
     prepare_initialized_adapter();
     advance_to_capture();
+    emit_response_handshake();
     for (index = 0U; index < STM32_DHT22_DATA_BITS; ++index)
     {
         stm32_dht22_adapter_on_edge(&adapter, fake.now_us, true);
@@ -310,6 +352,7 @@ int main(void)
     RUN_TEST(test_start_is_non_blocking);
     RUN_TEST(test_deadline_releases_line);
     RUN_TEST(test_valid_frame_updates_reading);
+    RUN_TEST(test_data_capture_starts_after_response_low);
     RUN_TEST(test_bad_checksum_preserves_reading);
     RUN_TEST(test_invalid_pulse_preserves_reading);
     RUN_TEST(test_timeout_allows_immediate_recovery);

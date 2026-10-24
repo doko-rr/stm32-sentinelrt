@@ -27,6 +27,7 @@
 #include "stm32_sensor_composition.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,6 +73,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void StartSensorTask(void *argument);
+static void reportSensorRuntime(const sensor_sample_t *sample, UBaseType_t sensorStackWords, UBaseType_t defaultStackWords);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 5 */
@@ -170,18 +172,70 @@ for (;;)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static void reportSensorRuntime(
+    const sensor_sample_t *sample,
+    UBaseType_t sensorStackWords,
+    UBaseType_t defaultStackWords)
+{
+  int32_t temperatureTenths;
+  uint32_t humidityTenths;
+
+  if (sample == NULL)
+  {
+    return;
+  }
+
+  temperatureTenths = (int32_t)(sample->temperature_celsius * 10.0F);
+  humidityTenths = (uint32_t)(sample->relative_humidity_percent * 10.0F);
+
+  printf(
+      "SENSOR status=%s seq=%lu temp=%ld.%01ldC humidity=%lu.%01lu%% "
+      "stack_sensor=%lu stack_default=%lu\r\n",
+      sensor_sample_status_name(sample->status),
+      (unsigned long)sample->sequence,
+      (long)(temperatureTenths / 10),
+      (long)(temperatureTenths < 0
+          ? -(temperatureTenths % 10)
+          : temperatureTenths % 10),
+      (unsigned long)(humidityTenths / 10U),
+      (unsigned long)(humidityTenths % 10U),
+      (unsigned long)sensorStackWords,
+      (unsigned long)defaultStackWords
+  );
+}
+
 static void StartSensorTask(void *argument)
 {
   bool sensorReady;
+  uint32_t lastReportedSequence = 0U;
 
   (void)argument;
   sensorReady = stm32_sensor_composition_initialize(osKernelGetTickCount());
+  printf(
+      "SentinelRT sensor runtime %s\r\n",
+      sensorReady ? "started" : "initialization_failed"
+  );
 
   for (;;)
   {
     if (sensorReady)
     {
-      stm32_sensor_composition_process(osKernelGetTickCount());
+      uint32_t currentTick = osKernelGetTickCount();
+      sensor_sample_t sample;
+
+      stm32_sensor_composition_process(currentTick);
+      sample = stm32_sensor_composition_latest(currentTick);
+
+      if (sample.sequence != 0U
+          && sample.sequence != lastReportedSequence)
+      {
+        reportSensorRuntime(
+            &sample,
+            uxTaskGetStackHighWaterMark(NULL),
+            uxTaskGetStackHighWaterMark(defaultTaskHandle)
+        );
+        lastReportedSequence = sample.sequence;
+      }
     }
     osDelay(1U);
   }

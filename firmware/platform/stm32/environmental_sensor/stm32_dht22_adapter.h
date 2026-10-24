@@ -42,6 +42,7 @@ typedef struct
     volatile uint8_t pulse_count;
     volatile uint32_t rising_at_us;
     volatile bool high_active;
+    volatile bool response_low_seen;
     uint32_t phase_started_us;
 } stm32_dht22_adapter_t;
 
@@ -63,6 +64,7 @@ void stm32_dht22_adapter_on_edge(
 stm32_dht22_state_t stm32_dht22_adapter_state(
     const stm32_dht22_adapter_t *adapter
 );
+
 
 #ifdef __cplusplus
 }

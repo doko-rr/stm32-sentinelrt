@@ -191,11 +191,10 @@ stm32_dht22_hardware_t stm32_dht22_hal_hardware(
     return hardware;
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)
+static void handle_dht22_edge(uint16_t gpio_pin, bool level_high)
 {
     stm32_dht22_hal_t *binding = active_binding;
     uint32_t timestamp_us;
-    bool level_high;
 
     if (binding == NULL
         || !binding->capture_enabled
@@ -206,12 +205,20 @@ void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)
     }
 
     timestamp_us = (uint32_t)__HAL_TIM_GET_COUNTER(binding->timer);
-    level_high = HAL_GPIO_ReadPin(binding->data_port, binding->data_pin)
-        == GPIO_PIN_SET;
 
     stm32_dht22_adapter_on_edge(
         binding->adapter,
         timestamp_us,
         level_high
     );
+}
+
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t gpio_pin)
+{
+    handle_dht22_edge(gpio_pin, true);
+}
+
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t gpio_pin)
+{
+    handle_dht22_edge(gpio_pin, false);
 }

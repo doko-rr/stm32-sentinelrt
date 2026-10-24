@@ -26,6 +26,7 @@ static void reset_capture(stm32_dht22_adapter_t *adapter)
     adapter->pulse_count = 0U;
     adapter->rising_at_us = 0U;
     adapter->high_active = false;
+    adapter->response_low_seen = false;
     memset(
         (void *)adapter->high_pulses_us,
         0,
@@ -297,8 +298,24 @@ void stm32_dht22_adapter_on_edge(
 
     if (level_high)
     {
+        if (!adapter->response_low_seen)
+        {
+            return;
+        }
+
+        /*
+         * STM32C0/Wokwi may not deliver the complete 80 us response-high
+         * pair. The first measurable high pulse after response-low is data.
+         */
         adapter->rising_at_us = timestamp_us;
         adapter->high_active = true;
+        return;
+    }
+
+    if (!adapter->response_low_seen)
+    {
+        adapter->response_low_seen = true;
+        adapter->high_active = false;
         return;
     }
 
@@ -310,9 +327,10 @@ void stm32_dht22_adapter_on_edge(
     duration_us = elapsed_us(timestamp_us, adapter->rising_at_us);
     adapter->high_active = false;
 
+
     if (duration_us > UINT16_MAX)
     {
-        adapter->state = STM32_DHT22_IDLE;
+        return_to_idle(adapter);
         return;
     }
 
