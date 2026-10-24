@@ -1,3 +1,5 @@
+# STM32 SentinelRT
+
 # SentinelRT
 
 [![Firmware CI](https://github.com/doko-rr/stm32-sentinelrt/actions/workflows/firmware-ci.yml/badge.svg)](https://github.com/doko-rr/stm32-sentinelrt/actions)
@@ -197,43 +199,72 @@ The STM32 build validates:
 - Create a Git checkpoint before every critical generated-code change.
 - Commit only after native tests, firmware build, whitespace checks, and scope checks pass.
 
-## Roadmap
+## Roadmap Progress
 
-### Foundation
+Validated milestones:
 
-- [x] FreeRTOS firmware foundation
-- [x] Runtime heartbeat and system health model
-- [x] Hardware-independent status indicator port
-- [x] Native test and CI infrastructure
+- ✅ **Stage 1: Project foundation**
+  - PlatformIO native and STM32 environments, repository workflow, checkpoints, CI, README, and MIT license
+- ✅ **Stage 2: Clean architecture foundation**
+  - Sensor domain model, environmental sensor port, and non-blocking acquisition service
+- ✅ **Stage 3D-1: STM32 and Wokwi baseline**
+  - Nucleo-C031C6 build, USART2 telemetry, and simulator boot
+- ✅ **Stage 3D-2: DHT22 protocol engine**
+  - Pulse classification, frame packing, decoding, and checksum validation
+- ✅ **Stage 3D-3: PA4 and TIM1 timing foundation**
+  - EXTI edge capture and wraparound-safe microsecond timing
+- ✅ **Stage 3D-4A: Non-blocking DHT22 adapter engine**
+  - State machine, bounded pulse capture, timeout, and recovery
+- ✅ **Stage 3D-4B: STM32 DHT22 HAL binding**
+  - Open-drain start pulse and STM32C0 rising/falling EXTI callbacks
+- ✅ **Stage 3D-5: FreeRTOS composition**
+  - Static sensor task, composition root, telemetry, and stack-watermark reporting
+- ✅ **Stage 3D-6: End-to-end runtime validation**
+  - Normal: `VALID`, 24.0 C, 55.0 percent
+  - Disconnected: `TIMEOUT` without false data
+  - Recovery: valid readings restored after reconnecting the sensor
+  - 11/11 adapter tests, 58/58 native tests, 42/42 final audit checks, and successful CI
 
-### Sensor Acquisition
+Next milestone:
 
-- [x] Sensor sample domain model
-- [x] Environmental sensor port
-- [x] Non-blocking acquisition service
-- [x] DHT22 protocol core and native tests
-- [x] PA4 EXTI configuration
-- [x] TIM1 1 MHz microsecond timing source
-- [ ] STM32 DHT22 adapter
-- [ ] FreeRTOS composition and runtime integration
-- [ ] DHT22 Wokwi circuit and simulation
-- [ ] Timeout, checksum failure, disconnect, and recovery validation
+- ⬜ **Stage 4: Production hardening**
+  - Long-duration soak testing
+  - Sensor health counters and fault statistics
+  - Watchdog integration
+  - Stack and memory budget policies
+  - Additional fault injection and physical-board validation
 
-### Observability and Reliability
+## Overview
 
-- [ ] Structured runtime diagnostics
-- [ ] Sensor error counters and health thresholds
-- [ ] Watchdog integration
-- [ ] Persistent fault history
-- [ ] Telemetry transport port
+STM32 SentinelRT is a clean-architecture firmware project for the STM32C031C6 that acquires DHT22 temperature and humidity data without blocking the FreeRTOS scheduler. The implementation separates domain logic, application services, ports, STM32 platform bindings, and runtime composition so that protocol and acquisition behavior remain host-testable.
 
-### Future Expansion
+## Validation Status
 
-- [ ] Additional environmental sensors through the same port
-- [ ] Multi-sensor scheduling
-- [ ] Hardware-in-the-loop tests
-- [ ] Release artifacts and versioned firmware images
-- [ ] Production deployment guide
+Current validated baseline:
+
+- ✅ 11/11 DHT22 adapter tests pass
+- ✅ 58/58 native tests pass
+- ✅ STM32 firmware builds with 0 warnings and 0 errors
+- ✅ Wokwi normal runtime reports `VALID`, 24.0 C, and 55.0 percent
+- ✅ A disconnected sensor reports `TIMEOUT` without publishing false measurements
+- ✅ Valid readings recover after the sensor connection is restored
+- ✅ Final Stage 3D-6 audit passes 42/42 checks
+- ✅ GitHub Actions succeeds for the validated feature commit
+
+## Build Firmware
+
+From the repository root:
+
+```powershell
+pio run -e nucleo_c031c6 -t clean
+pio run -e nucleo_c031c6
+```
+
+The build generates `firmware.bin` and `firmware.elf` under `.pio/build/nucleo_c031c6/`.
+
+## Run the Wokwi Simulation
+
+Build the firmware, open the repository in VS Code with the Wokwi extension, and start the simulator using `diagram.json` and `wokwi.toml`. The default simulation connects DHT22 SDA to PA4, configures 24 C and 55 percent, and routes USART2 telemetry through PA2/PA3.
 
 ## Contributing
 
@@ -249,6 +280,44 @@ Contributions are welcome. For a predictable review process:
 ## Safety and Scope
 
 SentinelRT is an educational and portfolio firmware project. It is not certified for safety-critical, medical, automotive, industrial protection, or other regulated production use. Hardware timing and recovery behavior must be independently validated before deployment to a real system.
+
+## Roadmap progress
+
+The following milestones are complete and validated:
+
+- ✅ **Stage 1: Project foundation**
+  - PlatformIO environments for native tests and STM32 firmware
+  - Repository structure, Git workflow, checkpoints, and CI
+  - Professional project documentation and MIT licensing
+- ✅ **Stage 2: Clean architecture foundation**
+  - Sensor domain model and environmental sensor port
+  - Non-blocking acquisition service, timeout handling, and latest-result publication
+  - Business logic isolated from STM32 HAL details
+- ✅ **Stage 3D-1: STM32 and Wokwi baseline**
+  - Nucleo-C031C6 firmware build, USART2 telemetry, and Wokwi boot validation
+- ✅ **Stage 3D-2: DHT22 protocol engine**
+  - Pulse classification, 40-bit frame packing, value decoding, and checksum validation
+- ✅ **Stage 3D-3: PA4 and TIM1 timing foundation**
+  - PA4 sensor line, EXTI edge capture, microsecond timer, and wraparound-safe timing
+- ✅ **Stage 3D-4A: DHT22 adapter engine**
+  - Non-blocking state machine, capture timeout, 40-pulse collection, and recovery
+- ✅ **Stage 3D-4B: STM32 DHT22 HAL binding**
+  - Open-drain start pulse, input release, timer access, and STM32C0 rising/falling callbacks
+- ✅ **Stage 3D-5: FreeRTOS composition**
+  - Composition root, periodic sensor task, runtime telemetry, and stack-watermark reporting
+- ✅ **Stage 3D-6: End-to-end runtime validation**
+  - Normal reading: `VALID`, 24.0 C, 55.0 percent
+  - Disconnected sensor: `TIMEOUT` without false data
+  - Recovery: valid readings restored after reconnecting the sensor
+  - 11/11 adapter tests, 58/58 native tests, 42/42 final audit checks, and successful CI
+
+Next planned milestone:
+
+- ⬜ **Stage 4: Production hardening**
+  - Soak testing and long-duration reliability measurements
+  - Sensor health counters and fault statistics
+  - Watchdog integration and explicit stack/memory budget policies
+  - Additional fault injection and physical-board hardware-in-the-loop validation
 
 ## License
 
