@@ -199,41 +199,6 @@ The STM32 build validates:
 - Create a Git checkpoint before every critical generated-code change.
 - Commit only after native tests, firmware build, whitespace checks, and scope checks pass.
 
-## Roadmap Progress
-
-Validated milestones:
-
-- ✅ **Stage 1: Project foundation**
-  - PlatformIO native and STM32 environments, repository workflow, checkpoints, CI, README, and MIT license
-- ✅ **Stage 2: Clean architecture foundation**
-  - Sensor domain model, environmental sensor port, and non-blocking acquisition service
-- ✅ **Stage 3D-1: STM32 and Wokwi baseline**
-  - Nucleo-C031C6 build, USART2 telemetry, and simulator boot
-- ✅ **Stage 3D-2: DHT22 protocol engine**
-  - Pulse classification, frame packing, decoding, and checksum validation
-- ✅ **Stage 3D-3: PA4 and TIM1 timing foundation**
-  - EXTI edge capture and wraparound-safe microsecond timing
-- ✅ **Stage 3D-4A: Non-blocking DHT22 adapter engine**
-  - State machine, bounded pulse capture, timeout, and recovery
-- ✅ **Stage 3D-4B: STM32 DHT22 HAL binding**
-  - Open-drain start pulse and STM32C0 rising/falling EXTI callbacks
-- ✅ **Stage 3D-5: FreeRTOS composition**
-  - Static sensor task, composition root, telemetry, and stack-watermark reporting
-- ✅ **Stage 3D-6: End-to-end runtime validation**
-  - Normal: `VALID`, 24.0 C, 55.0 percent
-  - Disconnected: `TIMEOUT` without false data
-  - Recovery: valid readings restored after reconnecting the sensor
-  - 11/11 adapter tests, 58/58 native tests, 42/42 final audit checks, and successful CI
-
-Next milestone:
-
-- ⬜ **Stage 4: Production hardening**
-  - Long-duration soak testing
-  - Sensor health counters and fault statistics
-  - Watchdog integration
-  - Stack and memory budget policies
-  - Additional fault injection and physical-board validation
-
 ## Overview
 
 STM32 SentinelRT is a clean-architecture firmware project for the STM32C031C6 that acquires DHT22 temperature and humidity data without blocking the FreeRTOS scheduler. The implementation separates domain logic, application services, ports, STM32 platform bindings, and runtime composition so that protocol and acquisition behavior remain host-testable.
@@ -281,43 +246,32 @@ Contributions are welcome. For a predictable review process:
 
 SentinelRT is an educational and portfolio firmware project. It is not certified for safety-critical, medical, automotive, industrial protection, or other regulated production use. Hardware timing and recovery behavior must be independently validated before deployment to a real system.
 
-## Roadmap progress
+## Roadmap Progress
 
-The following milestones are complete and validated:
+### Completed and validated
 
 - ✅ **Stage 1: Project foundation**
-  - PlatformIO environments for native tests and STM32 firmware
-  - Repository structure, Git workflow, checkpoints, and CI
-  - Professional project documentation and MIT licensing
 - ✅ **Stage 2: Clean architecture foundation**
-  - Sensor domain model and environmental sensor port
-  - Non-blocking acquisition service, timeout handling, and latest-result publication
-  - Business logic isolated from STM32 HAL details
 - ✅ **Stage 3D-1: STM32 and Wokwi baseline**
-  - Nucleo-C031C6 firmware build, USART2 telemetry, and Wokwi boot validation
 - ✅ **Stage 3D-2: DHT22 protocol engine**
-  - Pulse classification, 40-bit frame packing, value decoding, and checksum validation
 - ✅ **Stage 3D-3: PA4 and TIM1 timing foundation**
-  - PA4 sensor line, EXTI edge capture, microsecond timer, and wraparound-safe timing
-- ✅ **Stage 3D-4A: DHT22 adapter engine**
-  - Non-blocking state machine, capture timeout, 40-pulse collection, and recovery
+- ✅ **Stage 3D-4A: Non-blocking DHT22 adapter engine**
 - ✅ **Stage 3D-4B: STM32 DHT22 HAL binding**
-  - Open-drain start pulse, input release, timer access, and STM32C0 rising/falling callbacks
 - ✅ **Stage 3D-5: FreeRTOS composition**
-  - Composition root, periodic sensor task, runtime telemetry, and stack-watermark reporting
 - ✅ **Stage 3D-6: End-to-end runtime validation**
-  - Normal reading: `VALID`, 24.0 C, 55.0 percent
+  - Normal runtime: `VALID`, 24.0 C, 55.0 percent
   - Disconnected sensor: `TIMEOUT` without false data
-  - Recovery: valid readings restored after reconnecting the sensor
-  - 11/11 adapter tests, 58/58 native tests, 42/42 final audit checks, and successful CI
+  - Recovery: `VALID` after reconnecting the sensor
+  - 11/11 adapter tests, 58/58 native tests, and 42/42 final audit checks
 
-Next planned milestone:
+### Next milestone
 
 - ⬜ **Stage 4: Production hardening**
-  - Soak testing and long-duration reliability measurements
+  - Long-duration soak testing
   - Sensor health counters and fault statistics
-  - Watchdog integration and explicit stack/memory budget policies
-  - Additional fault injection and physical-board hardware-in-the-loop validation
+  - Watchdog integration
+  - Stack and memory budget policies
+  - Additional fault injection and physical-board validation
 
 ## License
 
