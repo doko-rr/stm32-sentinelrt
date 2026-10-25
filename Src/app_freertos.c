@@ -48,6 +48,8 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 #define SENSOR_TASK_STACK_WORDS 256U
+#define SENSOR_TASK_STACK_MIN_WORDS 64U
+#define DEFAULT_TASK_STACK_MIN_WORDS 128U
 
 static osThreadId_t sensorTaskHandle;
 static StaticTask_t sensorTaskControlBlock;
@@ -76,6 +78,9 @@ static void StartSensorTask(void *argument);
 static void reportSensorRuntime(
     const sensor_sample_t *sample,
     const sensor_acquisition_diagnostics_t *diagnostics,
+    UBaseType_t sensorStackWords,
+    UBaseType_t defaultStackWords);
+static const char *stackHealthStatus(
     UBaseType_t sensorStackWords,
     UBaseType_t defaultStackWords);
 /* USER CODE END FunctionPrototypes */
@@ -176,6 +181,18 @@ for (;;)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static const char *stackHealthStatus(
+    UBaseType_t sensorStackWords,
+    UBaseType_t defaultStackWords)
+{
+  if (sensorStackWords < SENSOR_TASK_STACK_MIN_WORDS
+      || defaultStackWords < DEFAULT_TASK_STACK_MIN_WORDS)
+  {
+    return "CRITICAL";
+  }
+  return "OK";
+}
+
 static void reportSensorRuntime(
     const sensor_sample_t *sample,
     const sensor_acquisition_diagnostics_t *diagnostics,
@@ -197,7 +214,7 @@ static void reportSensorRuntime(
       "SENSOR status=%s seq=%lu temp=%ld.%01ldC humidity=%lu.%01lu%% "
       "attempts=%lu success=%lu range=%lu timeout=%lu hw=%lu "
       "fail_streak=%lu peak_fail_streak=%lu "
-      "stack_sensor=%lu stack_default=%lu\r\n",
+      "stack_sensor=%lu stack_default=%lu stack_status=%s\r\n",
       sensor_sample_status_name(sample->status),
       (unsigned long)sample->sequence,
       (long)(temperatureTenths / 10),
@@ -214,7 +231,8 @@ static void reportSensorRuntime(
       (unsigned long)diagnostics->consecutive_failures,
       (unsigned long)diagnostics->peak_consecutive_failures,
       (unsigned long)sensorStackWords,
-      (unsigned long)defaultStackWords
+      (unsigned long)defaultStackWords,
+      stackHealthStatus(sensorStackWords, defaultStackWords)
   );
 }
 
