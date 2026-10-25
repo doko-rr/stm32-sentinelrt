@@ -163,6 +163,101 @@ static void test_diagnostic_counter_saturates(void)
     TEST_ASSERT_EQUAL_UINT32(UINT32_MAX, service.diagnostics.hardware_failures);
 }
 
+static void test_health_snapshot_starts_at_zero(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(0U, d.total_attempts);
+    TEST_ASSERT_EQUAL_UINT32(0U, d.consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(0U, d.peak_consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(0U, d.last_success_sequence);
+}
+
+static void test_start_failure_counts_attempt_and_failure_streak(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    fake.start_result = ENVIRONMENTAL_SENSOR_OPERATION_HARDWARE_ERROR;
+    sensor_acquisition_process(&service, 0U);
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(1U, d.total_attempts);
+    TEST_ASSERT_EQUAL_UINT32(1U, d.hardware_failures);
+    TEST_ASSERT_EQUAL_UINT32(1U, d.consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(1U, d.peak_consecutive_failures);
+}
+
+static void test_two_timeouts_track_current_and_peak_streak(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    sensor_acquisition_process(&service, 0U);
+    sensor_acquisition_process(&service, 21U);
+    sensor_acquisition_process(&service, 121U);
+    sensor_acquisition_process(&service, 142U);
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(2U, d.timeout_failures);
+    TEST_ASSERT_EQUAL_UINT32(2U, d.consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(2U, d.peak_consecutive_failures);
+}
+
+static void test_success_resets_streak_and_records_sequence(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    fake.start_result = ENVIRONMENTAL_SENSOR_OPERATION_HARDWARE_ERROR;
+    sensor_acquisition_process(&service, 0U);
+    fake.start_result = ENVIRONMENTAL_SENSOR_OPERATION_OK;
+    fake.poll_result = ENVIRONMENTAL_SENSOR_OPERATION_OK;
+    sensor_acquisition_process(&service, 100U);
+    sensor_acquisition_process(&service, 101U);
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(1U, d.successful_samples);
+    TEST_ASSERT_EQUAL_UINT32(0U, d.consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(1U, d.peak_consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(2U, d.last_success_sequence);
+}
+
+static void test_out_of_range_counts_as_failure_streak(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    fake.poll_result = ENVIRONMENTAL_SENSOR_OPERATION_OK;
+    fake.reading.relative_humidity_percent = 101.0F;
+    sensor_acquisition_process(&service, 0U);
+    sensor_acquisition_process(&service, 1U);
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(1U, d.out_of_range_samples);
+    TEST_ASSERT_EQUAL_UINT32(1U, d.consecutive_failures);
+}
+
+static void test_health_snapshot_rejects_null_and_is_read_only(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    sensor_acquisition_state_t before;
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    before = service.state;
+    TEST_ASSERT_FALSE(sensor_acquisition_get_diagnostics(NULL, &d));
+    TEST_ASSERT_FALSE(sensor_acquisition_get_diagnostics(&service, NULL));
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL(before, service.state);
+}
+
+static void test_new_health_counters_saturate(void)
+{
+    sensor_acquisition_diagnostics_t d = {0};
+    TEST_ASSERT_TRUE(initialize_service(0U));
+    service.diagnostics.total_attempts = UINT32_MAX;
+    service.diagnostics.consecutive_failures = UINT32_MAX;
+    service.diagnostics.peak_consecutive_failures = UINT32_MAX;
+    fake.start_result = ENVIRONMENTAL_SENSOR_OPERATION_HARDWARE_ERROR;
+    sensor_acquisition_process(&service, 0U);
+    TEST_ASSERT_TRUE(sensor_acquisition_get_diagnostics(&service, &d));
+    TEST_ASSERT_EQUAL_UINT32(UINT32_MAX, d.total_attempts);
+    TEST_ASSERT_EQUAL_UINT32(UINT32_MAX, d.consecutive_failures);
+    TEST_ASSERT_EQUAL_UINT32(UINT32_MAX, d.peak_consecutive_failures);
+}
+
 static void test_invalid_configuration_is_rejected(void)
 {
     environmental_sensor_port_t port = make_port();
@@ -183,6 +278,13 @@ int main(void)
     RUN_TEST(test_hardware_error_preserves_last_good);
     RUN_TEST(test_last_good_becomes_stale);
     RUN_TEST(test_diagnostic_counter_saturates);
+    RUN_TEST(test_health_snapshot_starts_at_zero);
+    RUN_TEST(test_start_failure_counts_attempt_and_failure_streak);
+    RUN_TEST(test_two_timeouts_track_current_and_peak_streak);
+    RUN_TEST(test_success_resets_streak_and_records_sequence);
+    RUN_TEST(test_out_of_range_counts_as_failure_streak);
+    RUN_TEST(test_health_snapshot_rejects_null_and_is_read_only);
+    RUN_TEST(test_new_health_counters_saturate);
     RUN_TEST(test_invalid_configuration_is_rejected);
     return UNITY_END();
 }

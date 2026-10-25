@@ -77,3 +77,13 @@ sensor_sample_t stm32_sensor_composition_latest(uint32_t current_tick)
     }
     return sensor_acquisition_latest_result(&acquisition, current_tick);
 }
+
+bool stm32_sensor_composition_diagnostics(
+    sensor_acquisition_diagnostics_t *diagnostics)
+{
+    if (!composition_initialized)
+    {
+        return false;
+    }
+    return sensor_acquisition_get_diagnostics(&acquisition, diagnostics);
+}

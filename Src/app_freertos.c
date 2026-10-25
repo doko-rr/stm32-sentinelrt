@@ -73,7 +73,11 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void StartSensorTask(void *argument);
-static void reportSensorRuntime(const sensor_sample_t *sample, UBaseType_t sensorStackWords, UBaseType_t defaultStackWords);
+static void reportSensorRuntime(
+    const sensor_sample_t *sample,
+    const sensor_acquisition_diagnostics_t *diagnostics,
+    UBaseType_t sensorStackWords,
+    UBaseType_t defaultStackWords);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 5 */
@@ -174,13 +178,14 @@ for (;;)
 /* USER CODE BEGIN Application */
 static void reportSensorRuntime(
     const sensor_sample_t *sample,
+    const sensor_acquisition_diagnostics_t *diagnostics,
     UBaseType_t sensorStackWords,
     UBaseType_t defaultStackWords)
 {
   int32_t temperatureTenths;
   uint32_t humidityTenths;
 
-  if (sample == NULL)
+  if (sample == NULL || diagnostics == NULL)
   {
     return;
   }
@@ -190,6 +195,8 @@ static void reportSensorRuntime(
 
   printf(
       "SENSOR status=%s seq=%lu temp=%ld.%01ldC humidity=%lu.%01lu%% "
+      "attempts=%lu success=%lu range=%lu timeout=%lu hw=%lu "
+      "fail_streak=%lu peak_fail_streak=%lu "
       "stack_sensor=%lu stack_default=%lu\r\n",
       sensor_sample_status_name(sample->status),
       (unsigned long)sample->sequence,
@@ -199,6 +206,13 @@ static void reportSensorRuntime(
           : temperatureTenths % 10),
       (unsigned long)(humidityTenths / 10U),
       (unsigned long)(humidityTenths % 10U),
+      (unsigned long)diagnostics->total_attempts,
+      (unsigned long)diagnostics->successful_samples,
+      (unsigned long)diagnostics->out_of_range_samples,
+      (unsigned long)diagnostics->timeout_failures,
+      (unsigned long)diagnostics->hardware_failures,
+      (unsigned long)diagnostics->consecutive_failures,
+      (unsigned long)diagnostics->peak_consecutive_failures,
       (unsigned long)sensorStackWords,
       (unsigned long)defaultStackWords
   );
@@ -222,6 +236,7 @@ static void StartSensorTask(void *argument)
     {
       uint32_t currentTick = osKernelGetTickCount();
       sensor_sample_t sample;
+      sensor_acquisition_diagnostics_t diagnostics;
 
       stm32_sensor_composition_process(currentTick);
       sample = stm32_sensor_composition_latest(currentTick);
@@ -229,12 +244,16 @@ static void StartSensorTask(void *argument)
       if (sample.sequence != 0U
           && sample.sequence != lastReportedSequence)
       {
-        reportSensorRuntime(
-            &sample,
-            uxTaskGetStackHighWaterMark(NULL),
-            uxTaskGetStackHighWaterMark(defaultTaskHandle)
-        );
-        lastReportedSequence = sample.sequence;
+        if (stm32_sensor_composition_diagnostics(&diagnostics))
+        {
+          reportSensorRuntime(
+              &sample,
+              &diagnostics,
+              uxTaskGetStackHighWaterMark(NULL),
+              uxTaskGetStackHighWaterMark(defaultTaskHandle)
+          );
+          lastReportedSequence = sample.sequence;
+        }
       }
     }
     osDelay(1U);

@@ -20,10 +20,14 @@ typedef struct {
 } sensor_acquisition_config_t;
 
 typedef struct {
+    uint32_t total_attempts;
     uint32_t successful_samples;
     uint32_t out_of_range_samples;
     uint32_t timeout_failures;
     uint32_t hardware_failures;
+    uint32_t consecutive_failures;
+    uint32_t peak_consecutive_failures;
+    uint32_t last_success_sequence;
 } sensor_acquisition_diagnostics_t;
 
 /**
@@ -67,6 +71,12 @@ bool sensor_acquisition_last_known_good(
     const sensor_acquisition_t *service,
     uint32_t current_tick,
     sensor_sample_t *sample
+);
+
+/** Copies a read-only health snapshot without changing service state. */
+bool sensor_acquisition_get_diagnostics(
+    const sensor_acquisition_t *service,
+    sensor_acquisition_diagnostics_t *diagnostics
 );
 
 const char *sensor_acquisition_state_name(sensor_acquisition_state_t state);

@@ -12,6 +12,24 @@ static void increment_saturating(uint32_t *counter)
     }
 }
 
+static void record_failure_streak(sensor_acquisition_t *service)
+{
+    increment_saturating(&service->diagnostics.consecutive_failures);
+    if (service->diagnostics.consecutive_failures
+        > service->diagnostics.peak_consecutive_failures)
+    {
+        service->diagnostics.peak_consecutive_failures =
+            service->diagnostics.consecutive_failures;
+    }
+}
+
+static void record_success(sensor_acquisition_t *service, uint32_t sequence)
+{
+    increment_saturating(&service->diagnostics.successful_samples);
+    service->diagnostics.consecutive_failures = 0U;
+    service->diagnostics.last_success_sequence = sequence;
+}
+
 static bool config_is_valid(const sensor_acquisition_config_t *config)
 {
     if (config == NULL)
@@ -66,13 +84,16 @@ static void record_failure(
     {
         increment_saturating(&service->diagnostics.hardware_failures);
     }
+    record_failure_streak(service);
     schedule_next(service, now);
 }
 
 static void begin_measurement(sensor_acquisition_t *service, uint32_t now)
 {
-    environmental_sensor_operation_t result =
-        environmental_sensor_port_start_measurement(&service->sensor_port);
+    environmental_sensor_operation_t result;
+
+    increment_saturating(&service->diagnostics.total_attempts);
+    result = environmental_sensor_port_start_measurement(&service->sensor_port);
 
     if (result == ENVIRONMENTAL_SENSOR_OPERATION_OK
         || result == ENVIRONMENTAL_SENSOR_OPERATION_PENDING)
@@ -108,12 +129,13 @@ static void accept_reading(
     {
         service->last_known_good_sample = sample;
         service->has_last_known_good_sample = true;
-        increment_saturating(&service->diagnostics.successful_samples);
+        record_success(service, sample.sequence);
     }
     else
     {
         /* An invalid attempt stays visible but never replaces trusted history. */
         increment_saturating(&service->diagnostics.out_of_range_samples);
+        record_failure_streak(service);
     }
     schedule_next(service, now);
 }
@@ -228,6 +250,18 @@ bool sensor_acquisition_last_known_good(
         &service->last_known_good_sample,
         now,
         service->config.stale_after_ticks);
+    return true;
+}
+
+bool sensor_acquisition_get_diagnostics(
+    const sensor_acquisition_t *service,
+    sensor_acquisition_diagnostics_t *diagnostics)
+{
+    if (service == NULL || diagnostics == NULL)
+    {
+        return false;
+    }
+    *diagnostics = service->diagnostics;
     return true;
 }
 
