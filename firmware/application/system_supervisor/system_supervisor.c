@@ -80,7 +80,7 @@ void system_supervisor_run_heartbeat(system_supervisor_t *supervisor)
     system_health_record_heartbeat(&supervisor->health);
 }
 
-system_watchdog_decision_t system_supervisor_service_watchdog(
+system_watchdog_decision_t system_supervisor_evaluate_watchdog(
     system_supervisor_t *supervisor,
     uint32_t current_tick,
     uint32_t sensor_sequence,
@@ -139,6 +139,25 @@ system_watchdog_decision_t system_supervisor_service_watchdog(
         return supervisor->watchdog_decision;
     }
 
+    supervisor->watchdog_decision =
+        SYSTEM_WATCHDOG_REFRESH_ALLOWED;
+    return supervisor->watchdog_decision;
+}
+
+system_watchdog_decision_t system_supervisor_refresh_watchdog(
+    system_supervisor_t *supervisor)
+{
+    if (supervisor == NULL || !supervisor->initialized
+        || !watchdog_port_is_valid(&supervisor->watchdog))
+    {
+        return SYSTEM_WATCHDOG_NOT_CONFIGURED;
+    }
+
+    if (supervisor->watchdog_decision != SYSTEM_WATCHDOG_REFRESH_ALLOWED)
+    {
+        return supervisor->watchdog_decision;
+    }
+
     if (!supervisor->watchdog.refresh(supervisor->watchdog.context))
     {
         supervisor->watchdog_decision = SYSTEM_WATCHDOG_REFRESH_FAILED;
@@ -148,4 +167,18 @@ system_watchdog_decision_t system_supervisor_service_watchdog(
     increment_saturating(&supervisor->watchdog_refresh_count);
     supervisor->watchdog_decision = SYSTEM_WATCHDOG_REFRESHED;
     return supervisor->watchdog_decision;
+}
+
+system_watchdog_decision_t system_supervisor_service_watchdog(
+    system_supervisor_t *supervisor,
+    uint32_t current_tick,
+    uint32_t sensor_sequence,
+    bool sensor_stack_ok,
+    bool default_stack_ok)
+{
+    system_watchdog_decision_t decision = system_supervisor_evaluate_watchdog(
+        supervisor, current_tick, sensor_sequence, sensor_stack_ok, default_stack_ok);
+    return decision == SYSTEM_WATCHDOG_REFRESH_ALLOWED
+        ? system_supervisor_refresh_watchdog(supervisor)
+        : decision;
 }

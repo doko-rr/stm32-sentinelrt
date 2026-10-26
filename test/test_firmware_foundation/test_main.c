@@ -356,6 +356,24 @@ static void test_progress_at_deadline_is_accepted_before_timeout_check(void)
     );
 }
 
+static void test_watchdog_evaluation_does_not_refresh_hardware(void)
+{
+    system_supervisor_t supervisor = {0};
+
+    initialize_supervisor_with_watchdog(&supervisor);
+    system_supervisor_run_heartbeat(&supervisor);
+    TEST_ASSERT_EQUAL(SYSTEM_WATCHDOG_NOT_READY,
+        system_supervisor_evaluate_watchdog(&supervisor, 0U, 1U, true, true));
+
+    system_supervisor_run_heartbeat(&supervisor);
+    TEST_ASSERT_EQUAL(SYSTEM_WATCHDOG_REFRESH_ALLOWED,
+        system_supervisor_evaluate_watchdog(&supervisor, 500U, 2U, true, true));
+    TEST_ASSERT_EQUAL_UINT32(0U, fake_watchdog.refresh_calls);
+    TEST_ASSERT_EQUAL(SYSTEM_WATCHDOG_REFRESHED,
+        system_supervisor_refresh_watchdog(&supervisor));
+    TEST_ASSERT_EQUAL_UINT32(1U, fake_watchdog.refresh_calls);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -380,5 +398,6 @@ int main(void)
     RUN_TEST(test_heartbeat_deadline_is_wraparound_safe);
     RUN_TEST(test_sensor_deadline_is_wraparound_safe);
     RUN_TEST(test_progress_at_deadline_is_accepted_before_timeout_check);
+    RUN_TEST(test_watchdog_evaluation_does_not_refresh_hardware);
     return UNITY_END();
 }

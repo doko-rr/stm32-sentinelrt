@@ -11,6 +11,7 @@
 typedef enum {
     SYSTEM_WATCHDOG_NOT_CONFIGURED = 0,
     SYSTEM_WATCHDOG_NOT_READY,
+    SYSTEM_WATCHDOG_REFRESH_ALLOWED,
     SYSTEM_WATCHDOG_REFRESHED,
     SYSTEM_WATCHDOG_BLOCKED_NO_PROGRESS,
     SYSTEM_WATCHDOG_BLOCKED_STACK_CRITICAL,
@@ -49,6 +50,18 @@ bool system_supervisor_configure_watchdog(
 );
 
 void system_supervisor_run_heartbeat(system_supervisor_t *supervisor);
+
+system_watchdog_decision_t system_supervisor_evaluate_watchdog(
+    system_supervisor_t *supervisor,
+    uint32_t current_tick,
+    uint32_t sensor_sequence,
+    bool sensor_stack_ok,
+    bool default_stack_ok
+);
+
+system_watchdog_decision_t system_supervisor_refresh_watchdog(
+    system_supervisor_t *supervisor
+);
 
 system_watchdog_decision_t system_supervisor_service_watchdog(
     system_supervisor_t *supervisor,
