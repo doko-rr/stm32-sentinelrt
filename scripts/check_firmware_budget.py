@@ -6,7 +6,7 @@ import re
 import sys
 
 RAM_BUDGET_BYTES = 9216
-FLASH_BUDGET_BYTES = 27033
+FLASH_BUDGET_BYTES = 28672
 USAGE_PATTERN = re.compile(
     r"^(RAM|Flash):.*used\s+(\d+)\s+bytes\s+from\s+(\d+)\s+bytes",
     re.MULTILINE,

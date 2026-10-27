@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "stm32_reset_cause.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,7 +80,12 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+    if (!stm32_reset_cause_capture())
+  {
+    Error_Handler();
+  }
+
+/* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();

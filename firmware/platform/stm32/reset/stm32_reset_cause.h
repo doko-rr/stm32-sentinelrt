@@ -8,8 +8,8 @@
 
 typedef struct
 {
-    reset_cause_t cause;
     uint32_t observed_flags;
+    reset_cause_t cause;
     bool captured;
 } stm32_reset_cause_snapshot_t;
 

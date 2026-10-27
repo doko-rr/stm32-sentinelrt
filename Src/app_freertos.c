@@ -29,6 +29,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>
+#include "stm32_reset_cause.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -219,7 +220,7 @@ for (;;)
 {
   system_supervisor_run_heartbeat(&supervisor);
 
-  if (readWatchdogRuntimeSnapshot(&watchdogSnapshot))
+if (readWatchdogRuntimeSnapshot(&watchdogSnapshot))
   {
     UBaseType_t defaultStackWords = uxTaskGetStackHighWaterMark(NULL);
     bool sensorStackOk =
@@ -399,9 +400,18 @@ static void StartSensorTask(void *argument)
 
   (void)argument;
   sensorReady = stm32_sensor_composition_initialize(osKernelGetTickCount());
+  stm32_reset_cause_snapshot_t bootResetSnapshot = {0};
+  reset_cause_t bootResetCause = RESET_CAUSE_UNKNOWN;
+
+  if (stm32_reset_cause_get(&bootResetSnapshot))
+  {
+    bootResetCause = bootResetSnapshot.cause;
+  }
+
   printf(
-      "SentinelRT sensor runtime %s\r\n",
-      sensorReady ? "started" : "initialization_failed"
+      "SentinelRT sensor runtime %s RST=%s\r\n",
+      sensorReady ? "started" : "initialization_failed",
+      reset_cause_name(bootResetCause)
   );
 
   for (;;)
