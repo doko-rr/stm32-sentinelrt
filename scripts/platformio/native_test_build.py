@@ -11,6 +11,7 @@ source_roots = [
     project / "firmware" / "domain" / "system_health",
     project / "firmware" / "domain" / "sensor_sample",
     project / "firmware" / "domain" / "dht22_protocol",
+    project / "firmware" / "domain" / "reset_cause",
     project / "firmware" / "application" / "system_supervisor",
     project / "firmware" / "application" / "sensor_acquisition",
 ]
