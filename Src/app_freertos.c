@@ -25,6 +25,7 @@
 #include "system_supervisor.h"
 #include "stm32_status_indicator.h"
 #include "stm32_sensor_composition.h"
+#include "watchdog_port.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>
@@ -34,7 +35,8 @@
 /* USER CODE BEGIN PTD */
 typedef struct
 {
-  uint32_t sensor_sequence;
+  sensor_sample_t sample;
+  sensor_acquisition_diagnostics_t diagnostics;
   UBaseType_t sensor_stack_words;
   uint32_t published_at_tick;
   bool sensor_ready;
@@ -56,8 +58,15 @@ typedef struct
 #define SENSOR_TASK_STACK_WORDS 256U
 #define SENSOR_TASK_STACK_MIN_WORDS 64U
 #define DEFAULT_TASK_STACK_MIN_WORDS 128U
+#define WATCHDOG_HEARTBEAT_TIMEOUT_TICKS 1500U
+#define WATCHDOG_SENSOR_TIMEOUT_TICKS 3000U
 
 static watchdog_runtime_snapshot_t watchdogRuntimeMailbox;
+static const system_watchdog_policy_t monitoringWatchdogPolicy = {
+  .heartbeat_timeout_ticks = WATCHDOG_HEARTBEAT_TIMEOUT_TICKS,
+  .sensor_timeout_ticks = WATCHDOG_SENSOR_TIMEOUT_TICKS,
+};
+static watchdog_port_t monitoringWatchdogPort;
 
 static osThreadId_t sensorTaskHandle;
 static StaticTask_t sensorTaskControlBlock;
@@ -77,7 +86,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 256 * 4
+  .stack_size = 352 * 4
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,11 +101,15 @@ static const char *stackHealthStatus(
     UBaseType_t sensorStackWords,
     UBaseType_t defaultStackWords);
 static void publishWatchdogRuntimeSnapshot(
-    uint32_t sensorSequence,
+    const sensor_sample_t *sample,
+    const sensor_acquisition_diagnostics_t *diagnostics,
     UBaseType_t sensorStackWords,
     uint32_t currentTick);
 static bool readWatchdogRuntimeSnapshot(
     watchdog_runtime_snapshot_t *snapshot);
+static bool monitoringWatchdogRefresh(void *context);
+static const char *watchdogDecisionName(
+    system_watchdog_decision_t decision);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 5 */
@@ -177,6 +190,12 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN defaultTask */
 system_supervisor_t supervisor = {0};
 watchdog_runtime_snapshot_t watchdogSnapshot;
+system_watchdog_decision_t watchdogDecision =
+    SYSTEM_WATCHDOG_NOT_CONFIGURED;
+system_watchdog_decision_t lastReportedWatchdogDecision =
+    SYSTEM_WATCHDOG_NOT_CONFIGURED;
+uint32_t lastReportedWatchdogSequence = 0U;
+uint32_t lastReportedSensorSequence = 0U;
 (void)argument;
 
 if (!system_supervisor_initialize(
@@ -186,10 +205,67 @@ if (!system_supervisor_initialize(
   Error_Handler();
 }
 
+monitoringWatchdogPort.context = NULL;
+monitoringWatchdogPort.refresh = monitoringWatchdogRefresh;
+if (!system_supervisor_configure_watchdog(
+    &supervisor,
+    &monitoringWatchdogPort,
+    &monitoringWatchdogPolicy))
+{
+  Error_Handler();
+}
+
 for (;;)
 {
   system_supervisor_run_heartbeat(&supervisor);
-  (void)readWatchdogRuntimeSnapshot(&watchdogSnapshot);
+
+  if (readWatchdogRuntimeSnapshot(&watchdogSnapshot))
+  {
+    UBaseType_t defaultStackWords = uxTaskGetStackHighWaterMark(NULL);
+    bool sensorStackOk =
+        watchdogSnapshot.sensor_stack_words >= SENSOR_TASK_STACK_MIN_WORDS;
+    bool defaultStackOk =
+        defaultStackWords >= DEFAULT_TASK_STACK_MIN_WORDS;
+
+    if (watchdogSnapshot.sample.sequence != lastReportedSensorSequence)
+    {
+      reportSensorRuntime(
+          &watchdogSnapshot.sample,
+          &watchdogSnapshot.diagnostics,
+          watchdogSnapshot.sensor_stack_words,
+          defaultStackWords
+      );
+      lastReportedSensorSequence = watchdogSnapshot.sample.sequence;
+    }
+
+    watchdogDecision = system_supervisor_evaluate_watchdog(
+        &supervisor,
+        osKernelGetTickCount(),
+        watchdogSnapshot.sample.sequence,
+        sensorStackOk,
+        defaultStackOk
+    );
+
+    if (watchdogDecision != lastReportedWatchdogDecision
+        || watchdogSnapshot.sample.sequence
+            != lastReportedWatchdogSequence)
+    {
+      printf(
+          "WD mode=MON decision=%s seq=%lu age=%lu ss=%lu ds=%lu\r\n",
+          watchdogDecisionName(watchdogDecision),
+          (unsigned long)watchdogSnapshot.sample.sequence,
+          (unsigned long)(
+              osKernelGetTickCount()
+              - watchdogSnapshot.published_at_tick),
+          (unsigned long)watchdogSnapshot.sensor_stack_words,
+          (unsigned long)defaultStackWords
+      );
+      lastReportedWatchdogDecision = watchdogDecision;
+      lastReportedWatchdogSequence =
+          watchdogSnapshot.sample.sequence;
+    }
+  }
+
   osDelay(500U);
 }
 /* USER CODE END defaultTask */
@@ -197,16 +273,53 @@ for (;;)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static bool monitoringWatchdogRefresh(void *context)
+{
+  (void)context;
+  return true;
+}
+
+static const char *watchdogDecisionName(
+    system_watchdog_decision_t decision)
+{
+  switch (decision)
+  {
+    case SYSTEM_WATCHDOG_NOT_CONFIGURED:
+      return "NCFG";
+    case SYSTEM_WATCHDOG_NOT_READY:
+      return "INIT";
+    case SYSTEM_WATCHDOG_REFRESH_ALLOWED:
+      return "ALLOW";
+    case SYSTEM_WATCHDOG_REFRESHED:
+      return "FED";
+    case SYSTEM_WATCHDOG_BLOCKED_NO_PROGRESS:
+      return "STALL";
+    case SYSTEM_WATCHDOG_BLOCKED_STACK_CRITICAL:
+      return "STACK";
+    case SYSTEM_WATCHDOG_REFRESH_FAILED:
+      return "FAIL";
+    default:
+      return "UNK";
+  }
+}
+
 static void publishWatchdogRuntimeSnapshot(
-    uint32_t sensorSequence,
+    const sensor_sample_t *sample,
+    const sensor_acquisition_diagnostics_t *diagnostics,
     UBaseType_t sensorStackWords,
     uint32_t currentTick)
 {
+  if (sample == NULL || diagnostics == NULL)
+  {
+    return;
+  }
+
   taskENTER_CRITICAL();
-  watchdogRuntimeMailbox.sensor_sequence = sensorSequence;
+  watchdogRuntimeMailbox.sample = *sample;
+  watchdogRuntimeMailbox.diagnostics = *diagnostics;
   watchdogRuntimeMailbox.sensor_stack_words = sensorStackWords;
   watchdogRuntimeMailbox.published_at_tick = currentTick;
-  watchdogRuntimeMailbox.sensor_ready = sensorSequence != 0U;
+  watchdogRuntimeMailbox.sensor_ready = sample->sequence != 0U;
   taskEXIT_CRITICAL();
 }
 
@@ -307,19 +420,13 @@ static void StartSensorTask(void *argument)
       {
         UBaseType_t sensorStackWords = uxTaskGetStackHighWaterMark(NULL);
 
-        publishWatchdogRuntimeSnapshot(
-            sample.sequence,
-            sensorStackWords,
-            currentTick
-        );
-
         if (stm32_sensor_composition_diagnostics(&diagnostics))
         {
-          reportSensorRuntime(
+          publishWatchdogRuntimeSnapshot(
               &sample,
               &diagnostics,
               sensorStackWords,
-              uxTaskGetStackHighWaterMark(defaultTaskHandle)
+              currentTick
           );
           lastReportedSequence = sample.sequence;
         }
@@ -329,4 +436,3 @@ static void StartSensorTask(void *argument)
   }
 }
 /* USER CODE END Application */
-
